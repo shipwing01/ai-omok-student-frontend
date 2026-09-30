@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI 오목 · 학생 프로그램</title>
+  <style>
+    :root{--navy:#102a43;--blue:#1769e0;--green:#08783e;--red:#b42318;--line:#d7e1eb;--muted:#627386}
+    *{box-sizing:border-box} body{margin:0;background:#eef3f8;color:#182230;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
+    header{padding:18px 24px;background:var(--navy);color:#fff} header div{width:min(1120px,100%);margin:auto;display:flex;justify-content:space-between;align-items:center;gap:20px} h1{margin:0;font-size:1.35rem}.badge{font-size:.85rem;color:#c8dcf3}
+    main{width:min(1120px,calc(100% - 28px));margin:24px auto}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 10px 28px #1f3c5914;margin-bottom:18px}h2{margin:0 0 8px;font-size:1.2rem}.description{color:var(--muted);line-height:1.6;margin:0 0 18px}
+    label{display:block;font-weight:700;margin:14px 0 7px}input,textarea,select{width:100%;border:1px solid #afbecd;border-radius:9px;padding:12px;font:inherit;background:#fff}textarea{min-height:330px;resize:vertical;font-family:Consolas,monospace;line-height:1.5;tab-size:4}input:focus,textarea:focus,select:focus{outline:3px solid #1769e026;border-color:var(--blue)}
+    button{border:0;border-radius:9px;padding:12px 17px;background:var(--blue);color:#fff;font:inherit;font-weight:750;cursor:pointer}button:hover{filter:brightness(.92)}button:disabled{background:#94a3b8;cursor:not-allowed}.secondary{background:#53677b}.submit{background:var(--green)}.buttons{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+    .status{padding:13px 14px;border-radius:9px;background:#edf2f7;margin-top:16px;line-height:1.5}.success{background:#e5f8ed;color:var(--green)}.error{background:#feeceb;color:var(--red)}
+    #workspace{display:none}.studentbar{display:flex;justify-content:space-between;gap:14px;background:#eef6ff;padding:14px;border-radius:10px}.online{color:var(--green)}
+    .grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:18px}.jsonbox{background:#101923;color:#dceaff;border-radius:10px;padding:14px;min-height:150px;white-space:pre-wrap;overflow:auto;font:14px/1.55 Consolas,monospace}.json-title{display:flex;justify-content:space-between;align-items:center;margin:18px 0 7px}.json-title strong{font-size:.92rem}.hint{font-size:.85rem;color:var(--muted)}
+    .replay-grid{display:grid;grid-template-columns:minmax(300px,680px) 1fr;gap:20px;align-items:start}#replayCanvas,#practiceCanvas{display:block;width:100%;aspect-ratio:1;background:#d9a95e;border-radius:10px}.ranking-wrap{overflow:auto;margin-top:16px}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid #e5ebf1}th{background:#f6f9fb;color:#56687a}.replay-info{padding:15px;border-radius:10px;background:#eef6ff;margin-bottom:12px;line-height:1.55}.replay-info strong{display:block;font-size:1.18rem;margin-bottom:4px}.speed{display:grid;grid-template-columns:1fr 1fr;gap:8px}.replay-hidden{display:none}.control-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.move-log{height:160px;overflow:auto;background:#101923;color:#dceaff;border-radius:10px;padding:12px;font:14px/1.55 Consolas,monospace;white-space:pre-wrap}.warning{color:#8a5200;background:#fff6dd}
+    .menu{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.menu button{background:#fff;color:var(--navy);border:1px solid var(--line);box-shadow:0 5px 14px #1f3c590d}.menu button.active{background:var(--blue);color:#fff;border-color:var(--blue)}.tab-panel{display:none}.tab-panel.active{display:block}.step-label{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:50%;background:var(--blue);color:#fff;font-size:.9rem;margin-right:7px}.api-note{font-size:.9rem;color:#6c4b00;background:#fff7dd;padding:12px 14px;border-radius:9px;margin:14px 0}
+    @media(max-width:820px){.grid,.replay-grid{grid-template-columns:1fr}.studentbar,header div{align-items:flex-start;flex-direction:column}.buttons button{flex:1 1 160px}.menu{grid-template-columns:1fr}.menu button{width:100%}}
+  </style>
+</head>
+<body>
+  <header><div><h1>AI 오목 학생 프로그램</h1><span class="badge">19×19 · Python 알고리즘</span></div></header>
+  <main>
+    <section id="registerCard" class="card">
+      <h2>수업 참가</h2><p class="description">별도 회원가입 없이 학생번호와 이름으로 참가합니다.</p>
+      <label for="studentNumber">학생번호</label><input id="studentNumber" maxlength="20" placeholder="예: 2301">
+      <label for="studentName">학생 이름</label><input id="studentName" maxlength="30" placeholder="예: 김학생">
+      <div class="buttons"><button id="joinButton" disabled>서버 연결 중</button></div>
+      <div id="connectionStatus" class="status" role="status">Supabase 서버에 연결하고 있습니다.</div>
+    </section>
+
+    <section id="workspace">
+      <div class="card studentbar"><span>참가 학생: <strong id="displayStudent"></strong></span><span class="online">● ONLINE</span><button id="endSessionButton" class="secondary">세션 종료·다른 학생으로 시작</button></div>
+      <nav class="menu" aria-label="학생 기능 메뉴">
+        <button type="button" class="menu-button active" data-tab="uploadPanel">1. 알고리즘 업로드</button>
+        <button type="button" class="menu-button" data-tab="practicePanel">2. 상대 알고리즘과 대결</button>
+        <button type="button" class="menu-button" data-tab="recordsPanel">3. 전체 토너먼트 결과</button>
+      </nav>
+        <section id="uploadPanel" class="card tab-panel active">
+          <h2><span class="step-label">1</span>Python 알고리즘 업로드</h2><p class="description">Python 파일을 불러오거나 아래 입력창에 직접 작성한 뒤 테스트하고 제출합니다. 시작 함수 이름은 <strong>get_next_move</strong>입니다.</p>
+          <label for="algorithmName">알고리즘 이름</label><input id="algorithmName" maxlength="50" value="나의 오목 AI">
+          <label for="algorithmFile">Python 파일 불러오기</label><input type="file" id="algorithmFile" accept=".py,text/x-python,text/plain">
+          <label for="algorithmCode">Python 알고리즘 코드</label>
+          <textarea id="algorithmCode">def get_next_move(game_state):
+    board = game_state["board"]
+
+    # 중앙에 먼저 둡니다.
+    if board[9][9] == 0:
+        return {"x": 9, "y": 9}
+
+    # 그다음 빈칸을 순서대로 찾습니다.
+    for y in range(19):
+        for x in range(19):
+            if board[y][x] == 0:
+                return {"x": x, "y": y}
+
+    return None</textarea>
+          <div class="api-note">입력은 현재 대국 상태 딕셔너리이며, 출력은 <strong>{"x": 정수, "y": 정수}</strong>입니다. 실제 테스트와 제출은 Python 실행 서버에 연결한 후 작동합니다.</div>
+          <div class="buttons"><button id="testButton">Python 알고리즘 테스트</button><button id="resetButton" class="secondary">예제 코드 복원</button><button id="downloadAlgorithmButton" class="secondary">내 알고리즘 PY 다운로드</button><button id="submitButton" class="submit" disabled>최종 제출</button></div>
+          <div id="submitStatus" class="status">테스트에 성공한 코드만 제출할 수 있습니다.</div>
+        </section>
+      <section id="practicePanel" class="card tab-panel">
+        <h2><span class="step-label">2</span>기존 알고리즘과 연습 대국</h2>
+        <p class="description">제출된 상대 AI를 선택하여 Python 실행 서버에서 대국합니다. 상대방 알고리즘 코드는 내려받지 않고 착수 결과만 전달받습니다.</p>
+        <div class="replay-grid">
+          <canvas id="practiceCanvas" width="680" height="680" aria-label="연습 대국 바둑판"></canvas>
+          <div>
+            <label for="practiceMyFile">대결에 사용할 내 Python 파일</label>
+            <input type="file" id="practiceMyFile" accept=".py,text/x-python,text/plain">
+            <div class="buttons"><button id="practiceMyTestButton" class="secondary" disabled>내 파일 테스트</button></div>
+            <div id="practiceMyStatus" class="status">내 Python 파일을 선택하고 테스트하세요.</div>
+            <label for="opponentSelect">상대 알고리즘</label>
+            <select id="opponentSelect"><option value="">상대 목록을 불러오세요.</option></select>
+            <div class="buttons"><button id="refreshOpponentsButton" class="secondary">상대 목록 새로고침</button></div>
+            <div class="control-grid">
+              <div><label for="myColorSelect">나의 돌</label><select id="myColorSelect"><option value="BLACK">흑</option><option value="WHITE">백</option><option value="RANDOM">무작위</option></select></div>
+              <div><label for="practiceSpeed">자동 진행 속도</label><select id="practiceSpeed"><option value="300">느리게</option><option value="60">보통</option><option value="0" selected>빠르게</option></select></div>
+            </div>
+            <div class="buttons"><button id="newPracticeButton">대결 실행 요청</button><button id="practiceStepButton" class="secondary" disabled>다음 수</button><button id="practiceAutoButton" class="submit" disabled>기보 자동 재생</button><button id="practiceFastButton" disabled>마지막 수</button><button id="practiceStopButton" class="secondary" disabled>정지</button></div>
+            <div id="practiceStatus" class="status">먼저 내 알고리즘을 테스트하고 상대 목록을 불러오세요.</div>
+            <label>착수 기록</label><div id="practiceMoveLog" class="move-log">아직 시작된 대국이 없습니다.</div>
+            <div class="buttons"><button id="downloadPracticeButton" class="secondary" disabled>연습 기보 JSON 다운로드</button></div>
+          </div>
+        </div>
+      </section>
+      <section id="recordsPanel" class="card tab-panel">
+        <h2><span class="step-label">3</span>전체 토너먼트 결과 및 기보</h2><p class="description">전체 순위와 모든 경기의 기보를 확인하고 JSON으로 다운로드하거나 한 수씩 재생할 수 있습니다. 다른 학생의 알고리즘 코드는 포함되지 않습니다.</p>
+        <div class="buttons"><button id="loadServerRecordsButton">최신 공식 순위·기보 새로고침</button><button id="downloadRecordsButton" class="submit" disabled>전체 대국정보 JSON 다운로드</button></div>
+        <label for="recordFile">교사가 제공한 전체 기보 JSON 불러오기</label><input type="file" id="recordFile" accept=".json,application/json">
+        <div id="recordStatus" class="status">교사가 제공한 JSON 파일을 선택하세요.</div>
+        <div id="recordViewer" class="replay-hidden">
+          <div class="ranking-wrap"><table><thead><tr><th>순위</th><th>학생</th><th>경기</th><th>승</th><th>패</th><th>무</th><th>승점</th><th>승률</th></tr></thead><tbody id="recordRankingRows"></tbody></table></div>
+          <div style="margin-top:22px" class="replay-grid">
+            <canvas id="replayCanvas" width="680" height="680" aria-label="기보 재생 바둑판"></canvas>
+            <div>
+              <label for="recordGameSelect">재생할 경기</label><select id="recordGameSelect"></select>
+              <div id="replayInfo" class="replay-info"><strong>경기를 선택하세요.</strong></div>
+              <div class="buttons"><button id="firstMoveButton" class="secondary">처음</button><button id="prevMoveButton" class="secondary">이전 수</button><button id="nextRecordMoveButton">다음 수</button><button id="playRecordButton" class="submit">자동 재생</button><button id="downloadSelectedGameButton" class="secondary">선택 대국 JSON 다운로드</button></div>
+              <label for="replaySpeed">재생 속도</label><select id="replaySpeed"><option value="900">느리게</option><option value="450" selected>보통</option><option value="120">빠르게</option></select>
+              <div id="replayTurn" class="status">0 / 0수</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script>
+    let client,currentUser,currentStudent,lastTestedCode="";let recordData=null,currentRecordGame=null,replayIndex=0,replayTimer=null;
+    let opponents=[],practice=null,practiceTimer=null,practiceBusy=false,practiceReplayIndex=0,practiceFileCode='',practiceTestedCode='',practiceAlgorithmId='',tournamentPollTimer=null;
+    const $=s=>document.querySelector(s);
+    const exampleCode=$('#algorithmCode').value;
+    const emptyBoard=()=>Array.from({length:19},()=>Array(19).fill(0));
+
+    function status(el,message,type="") { el.textContent=message; el.className='status '+type; }
+    function openTab(panelId){
+      document.querySelectorAll('.tab-panel').forEach(panel=>panel.classList.toggle('active',panel.id===panelId));
+      document.querySelectorAll('.menu-button').forEach(button=>button.classList.toggle('active',button.dataset.tab===panelId));
+      if(panelId==='practicePanel')drawBoardCanvas($('#practiceCanvas'),practice?.board||emptyBoard(),practice?.moves?.at(-1)||null);
+      if(panelId==='recordsPanel'){if(currentRecordGame)drawReplayBoard(currentRecordGame,replayIndex);if(client&&currentStudent)loadServerRecords();}
+    }
+    document.querySelectorAll('.menu-button').forEach(button=>button.addEventListener('click',()=>openTab(button.dataset.tab)));
+    function backendConfigured(){return typeof BACKEND_URL==='string'&&/^https?:\/\//.test(BACKEND_URL)&&!BACKEND_URL.includes('여기에');}
+    async function api(path,options={}){
+      if(!backendConfigured())throw new Error('config.js에 BACKEND_URL을 설정해야 합니다.');
+      const session=(await client.auth.getSession()).data.session;
+      const headers={'Content-Type':'application/json',...(options.headers||{})};
+      if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;
+      const response=await fetch(`${BACKEND_URL}${path}`,{...options,headers});
+      let data={};try{data=await response.json();}catch(_){data={};}
+      if(!response.ok)throw new Error(data.error||data.detail||`서버 오류 ${response.status}`);
+      return data;
+    }
+    function showWorkspace(){ $('#registerCard').style.display='none';$('#workspace').style.display='block';$('#displayStudent').textContent=`${currentStudent.student_number||''} ${currentStudent.student_name}`.trim();drawBoardCanvas($('#practiceCanvas'),emptyBoard(),null);loadOpponents(); }
+    function makeTestInput(){ return {gameId:'TEST-GAME',turn:1,myName:currentStudent?.student_name||'학생',opponentName:'테스트 상대',myStone:1,board:emptyBoard()}; }
+
+    async function start(){
+      try{
+        client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+        const session=await client.auth.getSession(); if(session.error) throw session.error;
+        if(session.data.session) currentUser=session.data.session.user;
+        else { const login=await client.auth.signInAnonymously();if(login.error)throw login.error;currentUser=login.data.user; }
+        status($('#connectionStatus'),'서버 연결 성공! 학생정보를 입력하세요.','success');$('#joinButton').disabled=false;$('#joinButton').textContent='참가하기';
+        const found=await client.from('students').select('*').eq('auth_user_id',currentUser.id).maybeSingle();if(found.error)throw found.error;
+        if(found.data){currentStudent=found.data;await client.from('students').update({connection_status:'ONLINE',last_connected_at:new Date().toISOString()}).eq('id',currentStudent.id);showWorkspace();}
+      }catch(e){status($('#connectionStatus'),'서버 연결 실패: '+e.message,'error');}
+    }
+
+    $('#joinButton').addEventListener('click',async function(){
+      const number=$('#studentNumber').value.trim(),name=$('#studentName').value.trim();if(!number||!name){status($('#connectionStatus'),'학생번호와 이름을 모두 입력하세요.','error');return;}
+      this.disabled=true;this.textContent='등록 중';
+      try{const joined=await api('/api/students/join',{method:'POST',body:JSON.stringify({authUserId:currentUser.id,studentNumber:number,studentName:name})});currentStudent=joined.student;status($('#connectionStatus'),joined.reentered?'기존 학생으로 다시 입장했습니다.':'새 학생으로 등록했습니다.','success');showWorkspace();}
+      catch(e){status($('#connectionStatus'),'입장 실패: '+e.message,'error');this.disabled=false;this.textContent='다시 시도';return;}
+    });
+    $('#endSessionButton').addEventListener('click',async function(){
+      if(!confirm('현재 학생 세션을 종료하고 다른 학생으로 시작할까요?'))return;this.disabled=true;this.textContent='세션 종료 중';stopReplay();stopPractice();try{if(currentStudent?.id)await client.from('students').update({connection_status:'OFFLINE'}).eq('id',currentStudent.id);const {error}=await client.auth.signOut({scope:'local'});if(error)throw error;currentStudent=null;currentUser=null;sessionStorage.clear();location.reload();}catch(e){this.disabled=false;this.textContent='세션 종료·다른 학생으로 시작';alert('세션 종료 실패: '+e.message);}
+    });
+
+    $('#algorithmFile').addEventListener('change',function(){const file=this.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{$('#algorithmCode').value=reader.result;invalidate();};reader.readAsText(file);});
+    $('#algorithmCode').addEventListener('input',invalidate);
+    $('#resetButton').addEventListener('click',()=>{$('#algorithmCode').value=exampleCode;invalidate();});
+    function invalidate(){lastTestedCode='';$('#submitButton').disabled=true;status($('#submitStatus'),'코드가 변경되었습니다. 다시 테스트하세요.');}
+
+    $('#testButton').addEventListener('click',async function(){
+      const code=$('#algorithmCode').value.trim();if(!code){status($('#submitStatus'),'Python 코드를 입력하세요.','error');return;}
+      this.disabled=true;status($('#submitStatus'),'Python 실행 서버에서 알고리즘을 테스트하고 있습니다.');
+      try{
+        const result=await api('/api/algorithms/test',{method:'POST',body:JSON.stringify({language:'PYTHON',sourceCode:code,gameState:makeTestInput()})});
+        if(!result.move||!Number.isInteger(result.move.x)||!Number.isInteger(result.move.y))throw new Error('서버가 올바른 좌표를 반환하지 않았습니다.');
+        lastTestedCode=code;$('#submitButton').disabled=false;status($('#submitStatus'),`테스트 성공! 좌표 (${result.move.x}, ${result.move.y}) · ${result.executionTimeMs??'-'}ms`,'success');
+      }catch(e){status($('#submitStatus'),'테스트 실패: '+e.message,'error');}
+      this.disabled=false;
+    });
+    function downloadText(filename,text,type){const blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+    $('#downloadAlgorithmButton').addEventListener('click',()=>{const number=currentStudent?.student_number||'student';downloadText(`${number}_omok_ai.py`,$('#algorithmCode').value,'text/x-python;charset=utf-8');});
+
+    $('#submitButton').addEventListener('click',async function(){
+      const code=$('#algorithmCode').value.trim();if(code!==lastTestedCode){status($('#submitStatus'),'코드가 바뀌었습니다. 다시 테스트하세요.','error');return;}this.disabled=true;this.textContent='제출 중';
+      try{
+        const result=await api('/api/algorithms/submit',{method:'POST',body:JSON.stringify({studentId:currentStudent.id,studentNumber:currentStudent.student_number,studentName:currentStudent.student_name,algorithmName:$('#algorithmName').value.trim()||'나의 오목 AI',language:'PYTHON',fileName:`${currentStudent.student_number||'student'}_omok_ai.py`,sourceCode:code})});
+        status($('#submitStatus'),`제출 완료! 버전 ${result.version??'-'}이 상대 목록에 등록되었습니다.`,'success');this.textContent='제출 완료';await loadOpponents();
+      }catch(e){status($('#submitStatus'),'제출 실패: '+e.message,'error');this.disabled=false;this.textContent='최종 제출';}
+    });
+
+    async function loadOpponents(){
+      if(!client||!currentStudent)return;const button=$('#refreshOpponentsButton');button.disabled=true;button.textContent='불러오는 중';
+      try{
+        const result=await api(`/api/opponents?excludeStudentId=${encodeURIComponent(currentStudent.id)}`);opponents=Array.isArray(result)?result:(result.opponents||[]);const select=$('#opponentSelect');select.innerHTML=opponents.length?'<option value="">상대를 선택하세요.</option>'+opponents.map(o=>`<option value="${o.algorithmId||o.submissionId}">${safeText(o.studentNumber||'')} ${safeText(o.studentName)} · ${safeText(o.algorithmName)} v${o.version}</option>`).join(''):'<option value="">대국 가능한 상대가 없습니다.</option>';status($('#practiceStatus'),opponents.length?`${opponents.length}명의 상대 AI를 불러왔습니다.`:'다른 학생이 Python 알고리즘을 제출하면 목록에 나타납니다.',opponents.length?'success':'');
+      }catch(e){status($('#practiceStatus'),'상대 목록 오류: '+e.message,'error');}
+      button.disabled=false;button.textContent='상대 목록 새로고침';
+    }
+    $('#refreshOpponentsButton').addEventListener('click',loadOpponents);
+    $('#practiceMyFile').addEventListener('change',function(){const file=this.files[0];practiceFileCode='';practiceTestedCode='';practiceAlgorithmId='';$('#practiceMyTestButton').disabled=true;if(!file)return;const reader=new FileReader();reader.onload=()=>{practiceFileCode=String(reader.result||'').trim();$('#practiceMyTestButton').disabled=!practiceFileCode;status($('#practiceMyStatus'),`${file.name} 파일을 불러왔습니다. 테스트를 누르세요.`);};reader.onerror=()=>status($('#practiceMyStatus'),'파일을 읽지 못했습니다.','error');reader.readAsText(file);});
+    $('#practiceMyTestButton').addEventListener('click',async function(){if(!practiceFileCode){status($('#practiceMyStatus'),'먼저 Python 파일을 선택하세요.','error');return;}this.disabled=true;status($('#practiceMyStatus'),'테스트 후 임시 대국용으로 저장하고 있습니다.');try{const test=await api('/api/algorithms/test',{method:'POST',body:JSON.stringify({language:'PYTHON',sourceCode:practiceFileCode,gameState:makeTestInput()})});const fileName=$('#practiceMyFile').files[0]?.name||'practice_ai.py';const payload={studentId:currentStudent.id,studentNumber:currentStudent.student_number,studentName:currentStudent.student_name,algorithmName:`${currentStudent.student_name} 임시 대국 AI`,language:'PYTHON',fileName,sourceCode:practiceFileCode};const saved=await api('/api/algorithms/temp',{method:'POST',body:JSON.stringify(payload)});practiceTestedCode=practiceFileCode;practiceAlgorithmId=saved.algorithmId;status($('#practiceMyStatus'),`임시 대국용 저장 완료 · 첫 수 (${test.move.x}, ${test.move.y})`,'success');if(confirm('이 파일을 상대 목록에 공개되는 최종 제출본으로도 저장할까요?')){const finalSaved=await api('/api/algorithms/submit',{method:'POST',body:JSON.stringify({...payload,algorithmName:$('#algorithmName').value.trim()||'나의 오목 AI'})});status($('#practiceMyStatus'),`임시 대국용 + 최종 제출 완료 · 버전 ${finalSaved.version}`,'success');await loadOpponents();}}catch(e){practiceTestedCode='';practiceAlgorithmId='';status($('#practiceMyStatus'),'저장 실패: '+e.message,'error');}this.disabled=false;});
+
+    function drawBoardCanvas(canvas,board,lastMove){
+      const ctx=canvas.getContext('2d'),d=canvas.width,pad=34,cell=(d-pad*2)/18;ctx.clearRect(0,0,d,d);const wood=ctx.createLinearGradient(0,0,d,d);wood.addColorStop(0,'#efc57c');wood.addColorStop(1,'#c98d40');ctx.fillStyle=wood;ctx.fillRect(0,0,d,d);ctx.strokeStyle='#3e2c19';ctx.lineWidth=1.25;
+      for(let i=0;i<19;i++){const p=pad+i*cell;ctx.beginPath();ctx.moveTo(p,pad);ctx.lineTo(p,d-pad);ctx.stroke();ctx.beginPath();ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);ctx.stroke();}[3,9,15].forEach(y=>[3,9,15].forEach(x=>{ctx.beginPath();ctx.arc(pad+x*cell,pad+y*cell,4.2,0,Math.PI*2);ctx.fillStyle='#3b2918';ctx.fill();}));
+      for(let y=0;y<19;y++)for(let x=0;x<19;x++)if(board[y][x]){const cx=pad+x*cell,cy=pad+y*cell,r=cell*.42,g=ctx.createRadialGradient(cx-r*.35,cy-r*.4,2,cx,cy,r);if(board[y][x]===1){g.addColorStop(0,'#555');g.addColorStop(1,'#050505');}else{g.addColorStop(0,'#fff');g.addColorStop(1,'#c9c9c2');}ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();if(lastMove&&lastMove.x===x&&lastMove.y===y){ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fillStyle='#e53935';ctx.fill();}}
+    }
+    function updatePracticeControls(){const hasMoves=Boolean(practice?.moves?.length);$('#practiceStepButton').disabled=!hasMoves||practiceReplayIndex>=practice.moves.length||practiceBusy;$('#practiceAutoButton').disabled=!hasMoves||practiceReplayIndex>=practice.moves.length||practiceBusy;$('#practiceFastButton').disabled=!hasMoves||practiceReplayIndex>=practice.moves.length||practiceBusy;$('#practiceStopButton').disabled=!practiceTimer;$('#downloadPracticeButton').disabled=!hasMoves;}
+    function stopPractice(){if(practiceTimer){clearTimeout(practiceTimer);practiceTimer=null;}$('#practiceAutoButton').textContent='기보 자동 재생';updatePracticeControls();}
+    function practiceRecord(){if(!practice)return null;return {format:'AI-OMOK-PRACTICE-GAME',version:'1.0',exportedAt:new Date().toISOString(),game:{gameCode:practice.gameCode,black:practice.black,white:practice.white,winner:practice.winner,resultReason:practice.resultReason,totalMoves:practice.moves.length,moves:practice.moves.map(m=>({turn:m.turn,stone:m.stone,x:m.x,y:m.y}))}};}
+    function applyPracticeState(data){
+      const game=data.game||data;const board=game.board||emptyBoard(),moves=game.moves||[];
+      practice={...(practice||{}),gameId:game.gameId||game.id||practice?.gameId,gameCode:game.gameCode||game.gameId||practice?.gameCode||'PRACTICE',board,moves,black:game.black||practice?.black||{studentName:'흑'},white:game.white||practice?.white||{studentName:'백'},winner:game.winner||null,resultReason:game.resultReason||'',finished:['FINISHED','DRAW','ERROR'].includes(game.status)||Boolean(game.finished)};
+      const last=moves.at(-1)||game.move||null;drawBoardCanvas($('#practiceCanvas'),board,last);$('#practiceMoveLog').textContent=moves.length?moves.map(m=>`${m.turn??m.turnNumber}. ${(m.stone===1||m.stone==='BLACK')?'흑':'백'} (${m.x}, ${m.y})`).join('\n'):'아직 착수하지 않았습니다.';$('#practiceMoveLog').scrollTop=$('#practiceMoveLog').scrollHeight;
+      if(practice.finished)status($('#practiceStatus'),practice.winner?`대국 종료 · ${practice.winner.studentName||practice.winner} 승리 · ${practice.resultReason}`:`대국 종료 · 무승부 · ${practice.resultReason}`,'success');else status($('#practiceStatus'),`${moves.length}수 진행 · 다음 수를 실행할 수 있습니다.`,'success');updatePracticeControls();
+    }
+    function drawPracticeReplay(){if(!practice)return;const board=emptyBoard(),shown=practice.moves.slice(0,practiceReplayIndex);for(const m of shown)board[m.y][m.x]=(m.stone===1||m.stone==='BLACK')?1:2;const last=shown.at(-1)||null;drawBoardCanvas($('#practiceCanvas'),board,last);$('#practiceMoveLog').textContent=shown.length?shown.map(m=>`${m.turn??m.turnNumber}. ${(m.stone===1||m.stone==='BLACK')?'흑':'백'} (${m.x}, ${m.y})`).join('\n'):'기보 시작 위치입니다.';$('#practiceMoveLog').scrollTop=$('#practiceMoveLog').scrollHeight;const winner=practice.winner?.studentName||practice.winner||'무승부';status($('#practiceStatus'),`${practiceReplayIndex} / ${practice.moves.length}수 · 대국 결과: ${winner}`,'success');updatePracticeControls();}
+    async function startPractice(){
+      stopPractice();const opponentAlgorithmId=$('#opponentSelect').value;if(!opponentAlgorithmId){status($('#practiceStatus'),'먼저 상대 AI를 선택하세요.','error');return;}if(!practiceAlgorithmId){status($('#practiceStatus'),'대결에 사용할 내 Python 파일을 선택하고 임시 저장하세요.','error');return;}
+      const button=$('#newPracticeButton');button.disabled=true;button.textContent='서버에서 대결 계산 중';
+      try{const data=await api('/api/practice-games/run-complete',{method:'POST',body:JSON.stringify({studentId:currentStudent.id,opponentAlgorithmId,myColor:$('#myColorSelect').value,myAlgorithmId:practiceAlgorithmId})});applyPracticeState(data);practiceReplayIndex=0;drawPracticeReplay();}
+      catch(e){status($('#practiceStatus'),'연습 대국 실행 실패: '+e.message,'error');}
+      button.disabled=false;button.textContent='대결 실행 요청';
+    }
+    async function playPracticeMove(){
+      if(!practice||practiceReplayIndex>=practice.moves.length)return false;practiceReplayIndex++;drawPracticeReplay();return practiceReplayIndex<practice.moves.length;
+    }
+    function autoPractice(){if(!practice||practiceReplayIndex>=practice.moves.length)return;if(practiceTimer){stopPractice();return;}$('#practiceAutoButton').textContent='일시정지';const tick=()=>{practiceTimer=null;const more=playPracticeMove();if(more){practiceTimer=setTimeout(tick,Math.max(20,Number($('#practiceSpeed').value)));updatePracticeControls();}};practiceTimer=setTimeout(tick,10);updatePracticeControls();}
+    function fastPractice(){if(!practice)return;stopPractice();practiceReplayIndex=practice.moves.length;drawPracticeReplay();}
+    $('#newPracticeButton').addEventListener('click',startPractice);$('#practiceStepButton').addEventListener('click',playPracticeMove);$('#practiceAutoButton').addEventListener('click',autoPractice);$('#practiceFastButton').addEventListener('click',fastPractice);$('#practiceStopButton').addEventListener('click',stopPractice);
+    $('#downloadPracticeButton').addEventListener('click',()=>{const data=practiceRecord();if(!data)return;downloadText(`${practice.gameCode}.json`,JSON.stringify(data,null,2),'application/json;charset=utf-8');});
+
+    function safeText(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function calculateLoadedRankings(games){
+      const rows=new Map();const get=p=>{const key=p.studentId||p.studentNumber||p.studentName;if(!rows.has(key))rows.set(key,{rank:0,studentId:p.studentId||'',studentNumber:p.studentNumber||'',studentName:p.studentName||'',games:0,wins:0,losses:0,draws:0,points:0,winRate:0});return rows.get(key);};
+      for(const g of games){const b=get(g.black),w=get(g.white);b.games++;w.games++;const winnerName=typeof g.winner==='object'?(g.winner?.studentName||g.winner?.student_name||''):g.winner;const winnerId=typeof g.winner==='object'?(g.winner?.studentId||g.winner?.student_id||''):'';if(!winnerName&&!winnerId){b.draws++;w.draws++;b.points++;w.points++;}else if((winnerId&&winnerId===g.black.studentId)||winnerName===b.studentName){b.wins++;b.points+=3;w.losses++;}else if((winnerId&&winnerId===g.white.studentId)||winnerName===w.studentName){w.wins++;w.points+=3;b.losses++;}else{b.draws++;w.draws++;b.points++;w.points++;}}
+      const list=[...rows.values()];for(const r of list)r.winRate=r.games?Number((r.wins/r.games*100).toFixed(1)):0;list.sort((a,b)=>b.points-a.points||b.wins-a.wins||b.winRate-a.winRate||a.studentNumber.localeCompare(b.studentNumber,'ko'));list.forEach((r,i)=>r.rank=i+1);return list;
+    }
+    function normalizeRecords(raw){
+      if(!Array.isArray(raw.games))throw new Error('games 배열이 없습니다.');const games=raw.games.map(g=>({gameCode:g.gameCode,black:{studentId:g.black?.studentId||g.black?.student_id||'',studentNumber:g.black?.studentNumber||g.black?.student_number||'',studentName:g.black?.studentName||g.black?.student_name||''},white:{studentId:g.white?.studentId||g.white?.student_id||'',studentNumber:g.white?.studentNumber||g.white?.student_number||'',studentName:g.white?.studentName||g.white?.student_name||''},winner:g.winner||null,resultReason:g.resultReason||'',totalMoves:g.totalMoves,moves:Array.isArray(g.moves)?g.moves.map(m=>({turn:m.turn,stone:m.stone,x:m.x,y:m.y})):[]}));const rankings=calculateLoadedRankings(games);return {format:'AI-OMOK-RECORDS',version:'1.0',tournament:raw.tournament||{},rankings,games};
+    }
+    function displayRecords(raw){
+      recordData=normalizeRecords(raw);$('#recordRankingRows').innerHTML=recordData.rankings.map(r=>`<tr><td><strong>${r.rank}</strong></td><td>${safeText(r.studentNumber)} ${safeText(r.studentName)}</td><td>${r.games}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.draws}</td><td>${r.points}</td><td>${r.winRate}%</td></tr>`).join('');$('#recordGameSelect').innerHTML=recordData.games.map((g,i)=>`<option value="${i}">${i+1}. ${safeText(g.black.studentName)}(흑) VS ${safeText(g.white.studentName)}(백)</option>`).join('');$('#recordViewer').className='';$('#downloadRecordsButton').disabled=false;status($('#recordStatus'),`${recordData.rankings.length}명 · ${recordData.games.length}경기를 불러왔습니다.`,'success');if(recordData.games.length)selectRecordGame(0);
+    }
+    function drawReplayBoard(game,index){
+      const canvas=$('#replayCanvas'),ctx=canvas.getContext('2d'),d=canvas.width,pad=34,cell=(d-pad*2)/18,board=emptyBoard(),moves=(game?.moves||[]).slice(0,index);for(const m of moves)if(Number.isInteger(m.x)&&Number.isInteger(m.y)&&m.x>=0&&m.x<19&&m.y>=0&&m.y<19)board[m.y][m.x]=m.stone==='BLACK'?1:2;
+      ctx.clearRect(0,0,d,d);const wood=ctx.createLinearGradient(0,0,d,d);wood.addColorStop(0,'#efc57c');wood.addColorStop(1,'#c98d40');ctx.fillStyle=wood;ctx.fillRect(0,0,d,d);ctx.strokeStyle='#3e2c19';ctx.lineWidth=1.25;for(let i=0;i<19;i++){const p=pad+i*cell;ctx.beginPath();ctx.moveTo(p,pad);ctx.lineTo(p,d-pad);ctx.stroke();ctx.beginPath();ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);ctx.stroke();}[3,9,15].forEach(y=>[3,9,15].forEach(x=>{ctx.beginPath();ctx.arc(pad+x*cell,pad+y*cell,4.2,0,Math.PI*2);ctx.fillStyle='#3b2918';ctx.fill();}));
+      const last=moves.at(-1);for(let y=0;y<19;y++)for(let x=0;x<19;x++)if(board[y][x]){const cx=pad+x*cell,cy=pad+y*cell,r=cell*.42,g=ctx.createRadialGradient(cx-r*.35,cy-r*.4,2,cx,cy,r);if(board[y][x]===1){g.addColorStop(0,'#555');g.addColorStop(1,'#050505');}else{g.addColorStop(0,'#fff');g.addColorStop(1,'#c9c9c2');}ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();if(last&&last.x===x&&last.y===y){ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fillStyle='#e53935';ctx.fill();}}
+      $('#replayTurn').textContent=`${index} / ${game?.moves?.length||0}수`;
+    }
+    function selectRecordGame(index){
+      stopReplay();currentRecordGame=recordData.games[index];replayIndex=0;const g=currentRecordGame,winnerName=typeof g.winner==='object'?(g.winner?.studentName||g.winner?.student_name||'무승부'):(g.winner||'무승부');$('#replayInfo').innerHTML=`<strong>${safeText(g.black?.studentName)}(흑) VS ${safeText(g.white?.studentName)}(백)</strong>승자: ${safeText(winnerName)} · ${safeText(g.resultReason||'')} · ${g.totalMoves??g.moves.length}수`;drawReplayBoard(g,0);
+    }
+    function stopReplay(){if(replayTimer){clearInterval(replayTimer);replayTimer=null;}$('#playRecordButton').textContent='자동 재생';}
+    $('#recordFile').addEventListener('change',function(){
+      const file=this.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{displayRecords(JSON.parse(reader.result));}catch(e){status($('#recordStatus'),'JSON 불러오기 실패: '+e.message,'error');$('#recordViewer').className='replay-hidden';}};reader.readAsText(file);
+    });
+    async function loadServerRecords(){const button=$('#loadServerRecordsButton');if(button.disabled)return;button.disabled=true;button.textContent='공식 결과 확인 중';try{const data=await api('/api/tournaments/latest');displayRecords(data);if(data.tournament?.status==='RUNNING'){status($('#recordStatus'),`새 최종 제출본의 추가 대국을 서버에서 실행 중입니다 · ${data.tournament.completedGames} / ${data.tournament.totalGames}경기`,'success');clearTimeout(tournamentPollTimer);tournamentPollTimer=setTimeout(loadServerRecords,1500);}else{status($('#recordStatus'),`최신 버전 공식 순위 · ${data.games.length}경기 · 전체/개별 JSON 다운로드와 기보 재생이 가능합니다.`,'success');}}catch(e){status($('#recordStatus'),'서버 자료 불러오기 실패: '+e.message,'error');}button.disabled=false;button.textContent='최신 공식 순위·기보 새로고침';}
+    $('#loadServerRecordsButton').addEventListener('click',loadServerRecords);
+    $('#downloadRecordsButton').addEventListener('click',()=>{if(!recordData)return;downloadText(`AI오목_전체대국_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(recordData,null,2),'application/json;charset=utf-8');});
+    $('#downloadSelectedGameButton').addEventListener('click',()=>{
+      if(!currentRecordGame)return;const g=currentRecordGame,selected={format:'AI-OMOK-GAME-RECORD',version:'1.0',exportedAt:new Date().toISOString(),game:{gameCode:g.gameCode,black:{studentNumber:g.black.studentNumber,studentName:g.black.studentName},white:{studentNumber:g.white.studentNumber,studentName:g.white.studentName},winner:g.winner,resultReason:g.resultReason,totalMoves:g.totalMoves??g.moves.length,moves:g.moves.map(m=>({turn:m.turn,stone:m.stone,x:m.x,y:m.y}))}};const clean=v=>String(v||'student').replace(/[\\/:*?"<>|\s]+/g,'_');downloadText(`AI오목_${clean(g.black.studentName)}_vs_${clean(g.white.studentName)}_${clean(g.gameCode)}.json`,JSON.stringify(selected,null,2),'application/json;charset=utf-8');
+    });
+    $('#recordGameSelect').addEventListener('change',e=>selectRecordGame(Number(e.target.value)));
+    $('#firstMoveButton').addEventListener('click',()=>{if(!currentRecordGame)return;stopReplay();replayIndex=0;drawReplayBoard(currentRecordGame,replayIndex);});
+    $('#prevMoveButton').addEventListener('click',()=>{if(!currentRecordGame)return;stopReplay();replayIndex=Math.max(0,replayIndex-1);drawReplayBoard(currentRecordGame,replayIndex);});
+    $('#nextRecordMoveButton').addEventListener('click',()=>{if(!currentRecordGame)return;stopReplay();replayIndex=Math.min(currentRecordGame.moves.length,replayIndex+1);drawReplayBoard(currentRecordGame,replayIndex);});
+    $('#playRecordButton').addEventListener('click',function(){if(!currentRecordGame)return;if(replayTimer){stopReplay();return;}if(replayIndex>=currentRecordGame.moves.length)replayIndex=0;this.textContent='일시정지';replayTimer=setInterval(()=>{replayIndex++;drawReplayBoard(currentRecordGame,replayIndex);if(replayIndex>=currentRecordGame.moves.length)stopReplay();},Number($('#replaySpeed').value));});
+    $('#replaySpeed').addEventListener('change',()=>{if(replayTimer){stopReplay();$('#playRecordButton').click();}});
+    start();
+  </script>
+</body>
+</html>
