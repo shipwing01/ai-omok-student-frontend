@@ -236,8 +236,9 @@
       this.disabled=true;status($('#submitStatus'),'Python 실행 서버에서 알고리즘을 테스트하고 있습니다.');
       try{
         const result=await api('/api/algorithms/test',{method:'POST',body:JSON.stringify({language:'PYTHON',sourceCode:code,gameState:makeTestInput()})});
-        if(!result.move||!Number.isInteger(result.move.x)||!Number.isInteger(result.move.y))throw new Error('서버가 올바른 좌표를 반환하지 않았습니다.');
-        lastTestedCode=code;$('#submitButton').disabled=false;status($('#submitStatus'),`테스트 성공! 좌표 (${result.move.x}, ${result.move.y}) · ${result.executionTimeMs??'-'}ms`,'success');
+        const move=result.move;
+        if(!move||!Number.isInteger(move.x)||!Number.isInteger(move.y)||move.x<0||move.x>18||move.y<0||move.y>18)throw new Error('알고리즘이 0~18 범위의 정수 좌표를 반환해야 합니다.');
+        lastTestedCode=code;$('#submitButton').disabled=false;status($('#submitStatus'),`테스트 성공! 좌표 (${move.x}, ${move.y}) · ${result.executionTimeMs??'-'}ms`,'success');
       }catch(e){status($('#submitStatus'),'테스트 실패: '+e.message,'error');}
       this.disabled=false;
     });
